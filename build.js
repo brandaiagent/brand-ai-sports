@@ -378,7 +378,13 @@ fs.writeFileSync(path.join(OUT, 'sitemap.xml'),
 const AI_TRAINING_BOTS = ['GPTBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Google-Extended', 'Applebot-Extended', 'Bytespider', 'Meta-ExternalAgent', 'cohere-ai'];
 fs.writeFileSync(path.join(OUT, 'robots.txt'),
   `User-agent: *\nAllow: /\n\n` + AI_TRAINING_BOTS.map(b => `User-agent: ${b}\nDisallow: /\n`).join('\n') + `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
-fs.writeFileSync(path.join(OUT, 'posts.json'), JSON.stringify(posts.map(({ name, text, slug }) => ({ name, text, slug }))));
+// posts.json: 홈 목록에 필요한 머리말(제목·날짜·카테고리·이미지)만 담습니다. (본문 제외 → 파일이 매우 작아짐)
+// 홈 화면 코드는 text 안의 머리말을 읽으므로, 같은 모양의 짧은 text 를 만들어 줍니다.
+const slimText = p => {
+  const keep = getFrontmatter(p.text).split('\n').filter(l => /^(date|category|tag|image|thumbnail|cover):/.test(l));
+  return '---\ntitle: ' + String(p.title).replace(/[\r\n]+/g, ' ') + '\n' + keep.join('\n') + '\n---\n';
+};
+fs.writeFileSync(path.join(OUT, 'posts.json'), JSON.stringify(posts.map(p => ({ name: p.name, text: slimText(p), slug: p.slug }))));
 
 console.log(`빌드 완료: 글 ${posts.length}개, 신뢰 페이지 ${TRUST.length}개 → ${OUT}/ (sitemap.xml, robots.txt, posts.json 포함)`);
 if (!CONTACT) console.log('주의: site.config.json의 contactEmail이 비어 있어 문의 페이지를 만들지 않았습니다.');
