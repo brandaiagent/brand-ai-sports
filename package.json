@@ -1,0 +1,7 @@
+{
+  "name": "brand-ai-sports",
+  "private": true,
+  "dependencies": {
+    "marked": "12.0.2"
+  }
+}
