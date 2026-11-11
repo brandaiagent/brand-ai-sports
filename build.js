@@ -171,6 +171,97 @@ const indexSrc = brandHome(fs.readFileSync('index.html', 'utf8'));
 const style = (indexSrc.match(/<style>[\s\S]*?<\/style>/) || [''])[0];
 const fontLinks = (indexSrc.match(/<link rel="stylesheet"[^>]*>/g) || []).join('\n  ');
 
+// ---------- 신뢰 페이지 (소개·편집 원칙·광고 정책·개인정보·약관·문의) ----------
+const CONTACT = (CONFIG.contactEmail || '').trim();
+const POLICY_DATE = (CONFIG.policyDate || '').trim();
+const HAS_AFFILIATE = CONFIG.hasAffiliate !== false;
+const ANALYTICS = (CONFIG.analytics || '').trim(); // 예: "Microsoft Clarity" (쓰지 않으면 비워 둠)
+const listHtml = arr => '<ul>' + (arr || []).map(t => `<li>${esc(t)}</li>`).join('') + '</ul>';
+const paraHtml = arr => (arr || []).map(t => `<p>${esc(t)}</p>`).join('');
+const mail = CONTACT ? `<a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>` : '';
+const dateLine = POLICY_DATE ? `<p>시행일: ${esc(POLICY_DATE)}</p>` : '';
+
+const TRUST = [
+  { slug: 'about', nav: '소개', title: '사이트 소개', desc: `${SITE_NAME}는 어떤 사이트인지 소개합니다.`,
+    body: `<h2>어떤 곳인가요</h2>${paraHtml(CONFIG.aboutParagraphs && CONFIG.aboutParagraphs.length ? CONFIG.aboutParagraphs : [SITE_DESC])}
+<h2>글은 어떻게 만드나요</h2><p>글 작성과 확인 방식은 <a href="/editorial/">편집 원칙</a>에 자세히 적어 두었습니다.</p>${HAS_AFFILIATE ? '<p>제휴 링크가 있는 글에는 맨 위에 수수료 안내가 표시됩니다. 자세한 내용은 <a href="/disclosure/">광고·제휴 정책</a>을 확인해 주세요.</p>' : ''}
+<h2>운영</h2><p>이 사이트의 운영 주체는 ${esc(SITE_NAME)}입니다.${CONTACT ? ' 문의는 <a href="/contact/">문의 페이지</a>를 이용해 주세요.' : ''}</p>` },
+  { slug: 'editorial', nav: '편집 원칙', title: '편집 원칙', desc: `${SITE_NAME}가 글을 쓰고 확인하는 방식입니다.`,
+    body: `<h2>글 작성 방식</h2><ul><li>AI 도구의 도움을 받아 초안을 만들고, 발행 전에 운영자가 내용을 확인합니다.</li>${(CONFIG.editorialPoints || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+<h2>확인되지 않은 내용은 쓰지 않습니다</h2><p>출처를 확인하지 못한 가격, 수치, 일정, 순위, 후기는 글에 넣지 않습니다. 가격이나 재고처럼 자주 바뀌는 정보는 글을 쓴 시점의 내용이므로, 구매나 신청 전에 공식 안내에서 다시 확인해 주세요.</p>
+<h2>사용 경험 표시</h2><p>운영자가 직접 써 보지 않은 것을 써 본 것처럼 쓰지 않습니다. 직접 사용한 경우에만 그렇게 밝힙니다.</p>
+<h2>이미지</h2><p>AI로 만든 이미지에는 '${esc('AI 생성 이미지')}'라고 표시합니다.</p>
+<h2>정정 요청</h2><p>잘못된 내용을 발견하셨다면 ${CONTACT ? mail + '로' : '문의 방법으로'} 알려 주세요. 확인 후 수정하고, 의미가 달라지는 수정은 글의 수정일에 반영합니다.</p>` },
+  { slug: 'disclosure', nav: '광고·제휴', title: '광고·제휴 정책', desc: `${SITE_NAME}의 광고와 제휴 링크 표시 방식입니다.`,
+    body: HAS_AFFILIATE
+      ? `<h2>수수료 안내</h2><p>제휴 링크가 있는 글에는 맨 위에 다음과 같은 안내를 넣습니다.</p><blockquote>${esc(AFFILIATE_NOTICE)}</blockquote>
+<h2>표시 방법</h2><ul><li>안내 문구는 글 맨 위, 본문보다 먼저 보이게 넣습니다.</li><li>제휴 링크에는 광고성 링크임을 알리는 속성(sponsored, nofollow)을 붙입니다.</li></ul>
+<h2>평가의 독립성</h2><p>수수료가 있는지, 얼마인지에 따라 제품 평가나 순서를 바꾸지 않는 것을 원칙으로 합니다. 일반적으로 이용자가 제휴 링크로 구매해도 추가 비용은 없습니다.</p>
+<h2>출처</h2><p>글에 쓴 정보의 출처는 본문에 표시하며, 출처를 확인하지 못한 내용은 쓰지 않습니다.</p>`
+      : `<h2>광고·제휴 현황</h2><p>현재 이 사이트에는 광고나 제휴 링크가 없습니다. 앞으로 생기면 해당 글 맨 위에 명확히 표시하고 이 페이지를 갱신합니다.</p>
+<h2>출처</h2><p>글에 쓴 정보의 출처는 본문에 표시하며, 출처를 확인하지 못한 내용은 쓰지 않습니다.</p>` },
+  { slug: 'privacy', nav: '개인정보처리방침', title: '개인정보처리방침', desc: `${SITE_NAME}의 개인정보 처리 방식입니다.`,
+    body: `<h2>1. 수집하는 정보</h2><p>이 사이트에는 회원가입, 댓글, 결제 기능이 없으며 이용자가 직접 입력하는 개인정보를 수집하지 않습니다.${CONTACT ? ' 이메일로 문의하시면 보내 주신 이메일 주소와 문의 내용이 운영자에게 전달됩니다.' : ''}</p>
+<h2>2. 자동으로 처리되는 정보</h2><p>사이트를 제공하는 호스팅 서비스(Cloudflare)가 접속 기록(IP 주소, 브라우저 정보, 접속 시각 등)을 서비스 운영과 보안을 위해 처리할 수 있습니다.</p>
+<h2>3. 이용 목적과 보관</h2><p>${CONTACT ? '문의 내용은 답변과 정정 처리에만 사용하며, 처리가 끝나면 지체 없이 파기합니다.' : '이 사이트는 이용자의 개인정보를 별도로 보관하지 않습니다.'}</p>
+<h2>4. 외부 서비스와 쿠키</h2><ul><li>글꼴(Google Fonts)과 스타일·스크립트(jsDelivr)를 불러올 때 해당 서비스에 접속 정보(IP 주소 등)가 전달될 수 있습니다.</li>${HAS_AFFILIATE ? '<li>제휴 링크를 누르면 이동한 쇼핑몰·제휴 사이트가 자체 쿠키를 사용할 수 있습니다. 이는 해당 사이트의 방침을 따릅니다.</li>' : ''}${ANALYTICS ? `<li>방문 통계를 위해 ${esc(ANALYTICS)}를 사용할 수 있으며, 이 과정에서 쿠키와 접속 정보가 처리될 수 있습니다.</li>` : ''}<li>브라우저 설정에서 쿠키 저장을 거부할 수 있습니다.</li></ul>
+<h2>5. 제3자 제공</h2><p>법령에 따른 경우를 제외하고 이용자의 정보를 제3자에게 제공하지 않습니다.</p>
+<h2>6. 이용자의 권리</h2><p>${CONTACT ? `문의 내용의 열람, 정정, 삭제를 원하시면 ${mail}로 요청해 주세요.` : '개인정보 관련 요청은 사이트 운영자에게 문의해 주세요.'}</p>
+<h2>7. 방침의 변경</h2><p>내용이 바뀌면 이 페이지를 갱신합니다.</p>${dateLine}` },
+  { slug: 'terms', nav: '이용약관', title: '이용약관', desc: `${SITE_NAME} 이용 조건입니다.`,
+    body: `<h2>1. 목적</h2><p>이 약관은 ${esc(SITE_NAME)} 사이트의 이용 조건을 정합니다.</p>
+<h2>2. 저작권</h2><p>사이트의 글과 이미지의 권리는 운영자에게 있습니다. 허락 없이 복제, 배포, 상업적으로 이용할 수 없으며, 인용할 때는 출처와 원문 링크를 표시해 주세요.</p>
+<h2>3. 정보의 성격</h2><p>글은 일반적인 정보 제공을 위한 것입니다. 정확성을 위해 노력하지만 가격, 일정, 제도 등은 바뀔 수 있으므로 중요한 결정 전에는 공식 안내를 직접 확인해 주세요. 글을 참고해 내린 결정의 결과에 대해 운영자는 법령이 허용하는 범위에서 책임을 지지 않습니다.</p>
+<h2>4. 외부 링크</h2><p>외부 사이트로 연결되는 링크가 있습니다. 외부 사이트의 내용과 운영에 대해서는 해당 사이트가 책임집니다.</p>
+<h2>5. 약관의 변경</h2><p>내용이 바뀌면 이 페이지를 갱신합니다.</p>${dateLine}` }
+];
+if (CONTACT) {
+  TRUST.push({ slug: 'contact', nav: '문의', title: '문의', desc: `${SITE_NAME}에 문의하는 방법입니다.`,
+    body: `<p>정정 요청, 제안, 제휴·광고 문의는 아래 이메일로 보내 주세요. 확인 후 순차적으로 답변드립니다.</p><p>${mail}</p><p>주민등록번호, 비밀번호 같은 민감한 정보는 보내지 마세요. 문의 정보 처리는 <a href="/privacy/">개인정보처리방침</a>을 따릅니다.</p>` });
+}
+const TRUST_CSS = `.trust-links{max-width:1180px;margin:0 auto;padding:0 32px 48px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem}.trust-links a{color:var(--ink-muted);text-decoration:none}.trust-links a:hover{color:var(--ink)}@media(max-width:600px){.trust-links{padding-left:20px;padding-right:20px}}`;
+const trustNav = () => `<nav class="trust-links" aria-label="사이트 정보">${TRUST.map(t => `<a href="/${t.slug}/">${t.nav}</a>`).join('')}</nav>`;
+function trustPage(t) {
+  const url = `${SITE_URL}/${t.slug}/`;
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${esc(t.title)} | ${SITE_NAME}</title>
+  <meta name="description" content="${esc(t.desc)}" />
+  <link rel="canonical" href="${url}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="${SITE_NAME}" />
+  <meta property="og:title" content="${esc(t.title)}" />
+  <meta property="og:description" content="${esc(t.desc)}" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta name="color-scheme" content="light dark" />
+  ${fontLinks}
+  ${style}
+  <style>a.back-btn { text-decoration: none; } #content-area h2:first-child { margin-top: 0; } ${TRUST_CSS}</style>
+</head>
+<body>
+  <header class="gnb">
+    <div class="gnb-top">
+      <a class="logo" href="/">${SITE_NAME}</a>
+    </div>
+  </header>
+  <div class="container">
+    <a class="back-btn" href="/">&larr; 홈으로</a>
+    <article class="detail-container">
+      <h1 class="detail-title">${esc(t.title)}</h1>
+      <div id="content-area">${t.body}</div>
+    </article>
+  </div>
+  <footer class="site-footer"><span class="f-logo">${SITE_NAME}</span><span>${esc(FOOTER_TAGLINE)}</span></footer>
+  ${trustNav()}
+</body>
+</html>`;
+}
+
+
 function postPage(p) {
   const url = `${SITE_URL}/p/${p.slug}/`;
   const img = absUrl(p.thumb);
@@ -222,7 +313,7 @@ function postPage(p) {
   <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
   ${style}
   <style>a.back-btn { text-decoration: none; }
-  .affiliate-notice { font-size: .9rem; color: var(--ink-sub); background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); padding: 12px 16px; margin: 0 0 32px; line-height: 1.6; }</style>
+  .affiliate-notice { font-size: .9rem; color: var(--ink-sub); background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); padding: 12px 16px; margin: 0 0 32px; line-height: 1.6; }${TRUST_CSS}</style>
 </head>
 <body>
   <header class="gnb">
@@ -241,6 +332,7 @@ function postPage(p) {
     </article>
   </div>
   <footer class="site-footer"><span class="f-logo">${SITE_NAME}</span><span>${esc(FOOTER_TAGLINE)}</span></footer>
+  ${trustNav()}
   <div id="progress"></div>
   <script>addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-innerHeight;document.getElementById('progress').style.width=(h>0?scrollY/h*100:0)+'%'},{passive:true});</script>
 </body>
@@ -250,6 +342,11 @@ for (const p of posts) {
   const dir = path.join(OUT, 'p', p.slug);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), postPage(p));
+}
+for (const t of TRUST) {
+  const dir = path.join(OUT, t.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.html'), trustPage(t));
 }
 
 // ---------- 메인 페이지(검색용 정보 추가) ----------
@@ -261,10 +358,12 @@ const homeHead = `  <meta name="description" content="${esc(SITE_DESC)}" />
   <meta property="og:title" content="${SITE_NAME} - ${HOME_OG_SUFFIX}" />
   <meta property="og:description" content="${esc(SITE_DESC)}" />
   <meta property="og:url" content="${SITE_URL}/" />
+  <style>${TRUST_CSS}</style>
 </head>`;
 let home = indexSrc.replace('</head>', homeHead);
 home = home.replace('<div class="state-msg">글 목록을 조회 중입니다...</div>',
   `<div class="state-msg">글 목록을 조회 중입니다...</div>\n      <noscript><ul>${list}</ul></noscript>`);
+home = home.replace('</footer>', '</footer>\n  ' + trustNav());
 fs.writeFileSync(path.join(OUT, 'index.html'), home);
 
 // ---------- sitemap / robots / posts.json ----------
@@ -272,10 +371,14 @@ const urls = [`<url><loc>${SITE_URL}/</loc></url>`].concat(posts.map(p => {
   let last = '';
   try { last = `<lastmod>${new Date(p.updated || p.date).toISOString().slice(0, 10)}</lastmod>`; } catch (e) {}
   return `<url><loc>${SITE_URL}/p/${p.slug}/</loc>${last}</url>`;
-}));
+}), TRUST.map(t => `<url><loc>${SITE_URL}/${t.slug}/</loc></url>`));
 fs.writeFileSync(path.join(OUT, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
-fs.writeFileSync(path.join(OUT, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+// 검색용 크롤러는 허용, AI 학습용 크롤러는 차단
+const AI_TRAINING_BOTS = ['GPTBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Google-Extended', 'Applebot-Extended', 'Bytespider', 'Meta-ExternalAgent', 'cohere-ai'];
+fs.writeFileSync(path.join(OUT, 'robots.txt'),
+  `User-agent: *\nAllow: /\n\n` + AI_TRAINING_BOTS.map(b => `User-agent: ${b}\nDisallow: /\n`).join('\n') + `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
 fs.writeFileSync(path.join(OUT, 'posts.json'), JSON.stringify(posts.map(({ name, text, slug }) => ({ name, text, slug }))));
 
-console.log(`빌드 완료: 글 ${posts.length}개 → ${OUT}/ (글 페이지, sitemap.xml, robots.txt, posts.json)`);
+console.log(`빌드 완료: 글 ${posts.length}개, 신뢰 페이지 ${TRUST.length}개 → ${OUT}/ (sitemap.xml, robots.txt, posts.json 포함)`);
+if (!CONTACT) console.log('주의: site.config.json의 contactEmail이 비어 있어 문의 페이지를 만들지 않았습니다.');
