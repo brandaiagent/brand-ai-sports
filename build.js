@@ -90,20 +90,26 @@ function absUrl(u) {
   return SITE_URL + '/' + u.replace(/^\.?\//, '');
 }
 
-// 본문에 'FAQ / 자주 묻는 질문' 제목(h2)이 있고 그 아래 질문(h3)+답변이 2개 이상일 때만 FAQ 정보를 뽑습니다.
+// 본문에 'FAQ / 자주 묻는 질문' 제목(h2)이 있고 그 아래 질문+답변이 2개 이상일 때만 FAQ 정보를 뽑습니다.
+// 질문 모양 두 가지를 모두 읽습니다: (1) 소제목(h3)이 질문 (2) **굵은 글씨 질문?** 한 줄 + 답변 (Studio 자동 글 형식)
 function extractFaq(html) {
   const head = html.match(/<h2[^>]*>[^<]*(?:FAQ|자주 묻는 질문)[^<]*<\/h2>/i);
   if (!head) return [];
   let sec = html.slice(head.index + head[0].length);
   const next = sec.search(/<h2[ >]/);
   if (next >= 0) sec = sec.slice(0, next);
-  const qs = [...sec.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)];
   const clean = h => decode(h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-  const out = qs.map((m, i) => {
+  const pairsBy = (marks, qOf) => marks.map((m, i) => {
     const from = m.index + m[0].length;
-    const to = i + 1 < qs.length ? qs[i + 1].index : sec.length;
-    return { q: clean(m[1]), a: clean(sec.slice(from, to)) };
+    const to = i + 1 < marks.length ? marks[i + 1].index : sec.length;
+    return { q: clean(qOf(m)), a: clean(sec.slice(from, to)) };
   }).filter(x => x.q && x.a);
+  let out = pairsBy([...sec.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)], m => m[1]);
+  if (out.length < 2) {
+    // 굵은 글씨로 시작하는 문단 중 물음표로 끝나거나 Q로 시작하는 것만 질문으로 봅니다.
+    const marks = [...sec.matchAll(/<p>\s*<strong>([\s\S]*?)<\/strong>/g)].filter(m => /[?？]\s*$|^\s*Q[.:\s]/.test(clean(m[1])));
+    out = pairsBy(marks, m => m[1]);
+  }
   return out.length >= 2 ? out : [];
 }
 
