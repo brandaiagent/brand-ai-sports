@@ -90,6 +90,23 @@ function absUrl(u) {
   return SITE_URL + '/' + u.replace(/^\.?\//, '');
 }
 
+// 본문에 'FAQ / 자주 묻는 질문' 제목(h2)이 있고 그 아래 질문(h3)+답변이 2개 이상일 때만 FAQ 정보를 뽑습니다.
+function extractFaq(html) {
+  const head = html.match(/<h2[^>]*>[^<]*(?:FAQ|자주 묻는 질문)[^<]*<\/h2>/i);
+  if (!head) return [];
+  let sec = html.slice(head.index + head[0].length);
+  const next = sec.search(/<h2[ >]/);
+  if (next >= 0) sec = sec.slice(0, next);
+  const qs = [...sec.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)];
+  const clean = h => decode(h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  const out = qs.map((m, i) => {
+    const from = m.index + m[0].length;
+    const to = i + 1 < qs.length ? qs[i + 1].index : sec.length;
+    return { q: clean(m[1]), a: clean(sec.slice(from, to)) };
+  }).filter(x => x.q && x.a);
+  return out.length >= 2 ? out : [];
+}
+
 // ---------- 글 읽기 ----------
 const posts = [];
 for (const dir of SOURCE_DIRS) {
@@ -126,7 +143,7 @@ for (const dir of SOURCE_DIRS) {
       return { src: absUrl(g('src')), alt: decode(g('alt')), w: +g('width') || 0, h: +g('height') || 0, ai: aiSrc.has(g('src')) };
     }).filter(i => i.src);
     posts.push({
-      name, text, title, html, date, affiliate, images,
+      name, text, title, html, date, affiliate, images, faq: extractFaq(html),
       notice: getField(text, 'ad_notice') || AFFILIATE_NOTICE,
       updated: getField(text, 'updated') || date,
       slug: makeSlug(name),
@@ -137,6 +154,16 @@ for (const dir of SOURCE_DIRS) {
   }
 }
 posts.sort((a, b) => (new Date(b.date) || 0) - (new Date(a.date) || 0));
+// 카테고리 페이지는 글이 2개 이상인 카테고리만 만듭니다. (내용이 빈약한 페이지 방지)
+const catSlug = c => 'cat-' + crypto.createHash('sha1').update(String(c).normalize('NFC')).digest('hex').slice(0, 8);
+const catCount = new Map();
+posts.forEach(p => catCount.set(p.category, (catCount.get(p.category) || 0) + 1));
+const hasCatPage = c => (catCount.get(c) || 0) >= 2;
+const relatedHtml = p => {
+  const rel = posts.filter(x => x !== p && x.category === p.category).slice(0, 3);
+  if (!rel.length) return '';
+  return `<section class="related"><h2>관련 글</h2><ul>${rel.map(x => `<li><a href="/p/${x.slug}/">${esc(x.title)}</a></li>`).join('')}</ul></section>`;
+};
 
 // ---------- dist 준비 + 정적 파일 복사 ----------
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -219,7 +246,7 @@ if (CONTACT) {
   TRUST.push({ slug: 'contact', nav: '문의', title: '문의', desc: `${SITE_NAME}에 문의하는 방법입니다.`,
     body: `<p>정정 요청, 제안, 제휴·광고 문의는 아래 이메일로 보내 주세요. 확인 후 순차적으로 답변드립니다.</p><p>${mail}</p><p>주민등록번호, 비밀번호 같은 민감한 정보는 보내지 마세요. 문의 정보 처리는 <a href="/privacy/">개인정보처리방침</a>을 따릅니다.</p>` });
 }
-const TRUST_CSS = `.trust-links{max-width:1180px;margin:0 auto;padding:0 32px 48px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem}.trust-links a{color:var(--ink-muted);text-decoration:none}.trust-links a:hover{color:var(--ink)}@media(max-width:600px){.trust-links{padding-left:20px;padding-right:20px}}`;
+const TRUST_CSS = `.card-tag a{color:inherit;text-decoration:none}.related{margin-top:56px;padding-top:28px;border-top:1px solid var(--line)}.related h2{font-family:var(--serif);font-size:1.2rem;font-weight:500;margin-bottom:14px}.related ul{list-style:none}.related li+li{margin-top:8px}.related a{color:var(--ink-sub);text-decoration:none}.related a:hover{color:var(--accent)}.cat-list{list-style:none;padding:0}.cat-list li{padding:12px 0;border-bottom:1px solid var(--line)}.cat-list time{color:var(--ink-muted);font-size:.85rem;margin-left:10px}.trust-links{max-width:1180px;margin:0 auto;padding:0 32px 48px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem}.trust-links a{color:var(--ink-muted);text-decoration:none}.trust-links a:hover{color:var(--ink)}@media(max-width:600px){.trust-links{padding-left:20px;padding-right:20px}}`;
 const trustNav = () => `<nav class="trust-links" aria-label="사이트 정보">${TRUST.map(t => `<a href="/${t.slug}/">${t.nav}</a>`).join('')}</nav>`;
 function trustPage(t) {
   const url = `${SITE_URL}/${t.slug}/`;
@@ -289,7 +316,8 @@ function postPage(p) {
     { '@type': 'ListItem', position: 1, name: SITE_NAME, item: SITE_URL + '/' },
     { '@type': 'ListItem', position: 2, name: p.title, item: url }
   ] };
-  const ld = { '@context': 'https://schema.org', '@graph': [post, crumbs].concat(imageNodes) };
+  const faqNode = p.faq.length ? [{ '@type': 'FAQPage', mainEntity: p.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) }] : [];
+  const ld = { '@context': 'https://schema.org', '@graph': [post, crumbs].concat(imageNodes, faqNode) };
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -325,10 +353,11 @@ function postPage(p) {
   <div class="container">
     <a class="back-btn" href="/">&larr; 목록으로</a>
     <article class="detail-container">
-      <div class="detail-meta"><span class="card-tag">${esc(p.category)}</span>${p.date ? `<time datetime="${esc(iso)}">${formatDate(p.date)}</time>` : ''}</div>
+      <div class="detail-meta"><span class="card-tag">${hasCatPage(p.category) ? `<a href="/c/${catSlug(p.category)}/">${esc(p.category)}</a>` : esc(p.category)}</span>${p.date ? `<time datetime="${esc(iso)}">${formatDate(p.date)}</time>` : ''}</div>
       <h1 class="detail-title">${esc(p.title)}</h1>
       ${p.affiliate ? `<p class="affiliate-notice">${esc(p.notice)}</p>` : ''}
       <div id="content-area">${p.html}</div>
+      ${relatedHtml(p)}
     </article>
   </div>
   <footer class="site-footer"><span class="f-logo">${SITE_NAME}</span><span>${esc(FOOTER_TAGLINE)}</span></footer>
@@ -344,6 +373,16 @@ for (const p of posts) {
   fs.writeFileSync(path.join(dir, 'index.html'), postPage(p));
 }
 for (const t of TRUST) {
+  const dir = path.join(OUT, t.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.html'), trustPage(t));
+}
+
+const CAT_PAGES = [...catCount.keys()].filter(hasCatPage).map(c => ({
+  slug: 'c/' + catSlug(c), title: c, desc: `${SITE_NAME}의 '${c}' 카테고리 글 모음입니다.`,
+  body: `<ul class="cat-list">${posts.filter(p => p.category === c).map(p => `<li><a href="/p/${p.slug}/">${esc(p.title)}</a>${p.date ? `<time>${formatDate(p.date)}</time>` : ''}</li>`).join('')}</ul>`
+}));
+for (const t of CAT_PAGES) {
   const dir = path.join(OUT, t.slug);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), trustPage(t));
@@ -371,7 +410,7 @@ const urls = [`<url><loc>${SITE_URL}/</loc></url>`].concat(posts.map(p => {
   let last = '';
   try { last = `<lastmod>${new Date(p.updated || p.date).toISOString().slice(0, 10)}</lastmod>`; } catch (e) {}
   return `<url><loc>${SITE_URL}/p/${p.slug}/</loc>${last}</url>`;
-}), TRUST.map(t => `<url><loc>${SITE_URL}/${t.slug}/</loc></url>`));
+}), TRUST.concat(CAT_PAGES).map(t => `<url><loc>${SITE_URL}/${t.slug}/</loc></url>`));
 fs.writeFileSync(path.join(OUT, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
 // 검색용 크롤러는 허용, AI 학습용 크롤러는 차단
@@ -386,5 +425,5 @@ const slimText = p => {
 };
 fs.writeFileSync(path.join(OUT, 'posts.json'), JSON.stringify(posts.map(p => ({ name: p.name, text: slimText(p), slug: p.slug }))));
 
-console.log(`빌드 완료: 글 ${posts.length}개, 신뢰 페이지 ${TRUST.length}개 → ${OUT}/ (sitemap.xml, robots.txt, posts.json 포함)`);
+console.log(`빌드 완료: 글 ${posts.length}개, 신뢰 페이지 ${TRUST.length}개, 카테고리 페이지 ${CAT_PAGES.length}개 → ${OUT}/ (sitemap.xml, robots.txt, posts.json 포함)`);
 if (!CONTACT) console.log('주의: site.config.json의 contactEmail이 비어 있어 문의 페이지를 만들지 않았습니다.');
