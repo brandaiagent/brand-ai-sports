@@ -1,4 +1,3 @@
-[2026-apbc-schedule-guide (1).md](https://github.com/user-attachments/files/34782347/2026-apbc-schedule-guide.1.md)
 ---
 title: "2026 아시아프로야구챔피언십(APBC) 경기 일정 정리"
 date: 2026-11-12T15:01:02
