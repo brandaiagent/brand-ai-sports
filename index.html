@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Brand Ai Agent - 쇼핑 큐레이션</title>
+  <meta name="description" content="Brand Ai Agent가 가격 대비 만족도가 높은 제품만 골라 정리합니다." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Brand Ai Agent" />
+  <meta property="og:title" content="Brand Ai Agent - 쇼핑 큐레이션" />
+  <meta property="og:description" content="Brand Ai Agent가 가격 대비 만족도가 높은 제품만 골라 정리합니다." />
+  <meta property="og:url" content="https://brand-ai-digital.pages.dev/" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:image" content="https://brand-ai-digital.pages.dev/images/cover.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="color-scheme" content="light dark" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600&display=swap" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
@@ -123,218 +132,4 @@
 
   <header class="gnb">
     <div class="gnb-top">
-      <a class="logo" onclick="goHome()">Brand Ai Agent</a>
-      <a class="admin-link" href="/admin" target="_blank">관리자</a>
-    </div>
-  </header>
-
-  <div class="container">
-    <section class="promo-banner" id="promo-section">
-      <h1>오래 쓸 물건을,<br>합리적인 가격에.</h1>
-      <p>Brand Ai Agent가 가격 대비 만족도가 높은 제품만 골라 정리합니다.</p>
-    </section>
-
-    <main id="app">
-      <div class="state-msg">글 목록을 조회 중입니다...</div>
-    </main>
-  </div>
-
-  <footer class="site-footer"><span class="f-logo">Brand Ai Agent</span><span>가격 대비 만족도 높은 제품 큐레이션</span></footer>
-  <div id="progress"></div>
-
-  <script>
-    window.addEventListener('scroll', () => {
-      const h = document.documentElement.scrollHeight - innerHeight;
-      document.getElementById('progress').style.width = (document.getElementById('content-area') && h > 0 ? scrollY / h * 100 : 0) + '%';
-    }, { passive: true });
-    let activePosts = [];
-    let activeFilter = '전체';
-
-    // ---- frontmatter helpers (display only) ----
-    function getFrontmatter(text) {
-      const m = text.match(/^---\s*\n([\s\S]*?)\n---/);
-      return m ? m[1] : '';
-    }
-    function getField(text, keys) {
-      const fm = getFrontmatter(text);
-      for (const key of keys) {
-        const m = fm.match(new RegExp('^' + key + ':\\s*["\']?(.*?)["\']?\\s*$', 'm'));
-        if (m && m[1]) return m[1];
-      }
-      return '';
-    }
-    function fixImagePath(src) {
-      if (!src || /^https?:\/\//.test(src)) return src;
-      return './' + src.replace(/^\.?\//, '');
-    }
-    function formatDate(d) {
-      if (!d) return '';
-      const dt = new Date(d);
-      if (isNaN(dt)) return d;
-      return dt.getFullYear() + '.' + String(dt.getMonth() + 1).padStart(2, '0') + '.' + String(dt.getDate()).padStart(2, '0');
-    }
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    }
-
-    // 1순위: 빌드 때 만든 posts.json (GitHub API 호출 제한 없음)
-    async function loadFromJson() {
-      try {
-        const res = await fetch('/posts.json', { cache: 'no-cache' });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return Array.isArray(data) ? data : null;
-      } catch (e) { return null; }
-    }
-
-    // 2순위(백업): posts.json이 없을 때만 GitHub API 사용
-    async function loadFromGithub() {
-      const resRoot = await fetch('https://api.github.com/repos/brandaiagent/my-page/contents/');
-      const filesRoot = resRoot.ok ? await resRoot.json() : [];
-      let filesPosts = [];
-      try {
-        const resPosts = await fetch('https://api.github.com/repos/brandaiagent/my-page/contents/posts');
-        if (resPosts.ok) filesPosts = await resPosts.json();
-      } catch (e) {}
-      const allFiles = [...(Array.isArray(filesRoot) ? filesRoot : []), ...(Array.isArray(filesPosts) ? filesPosts : [])];
-      const mdFiles = allFiles.filter(f => f.name && f.name.endsWith('.md') && f.name !== 'README.md');
-      const out = [];
-      for (const file of mdFiles) {
-        const text = await (await fetch(file.download_url)).text();
-        out.push({ name: file.name, text });
-      }
-      return out;
-    }
-
-    async function loadRealPosts() {
-      const app = document.getElementById('app');
-      try {
-        let sources = await loadFromJson();
-        if (!sources) sources = await loadFromGithub();
-
-        if (sources.length === 0) {
-          app.innerHTML = '<div class="state-msg">아직 등록된 글이 없습니다. 관리자(CMS)에서 첫 글을 발행해 보세요.</div>';
-          return;
-        }
-
-        activePosts = sources.map(({ name, text, slug }) => {
-          const titleMatch = text.match(/title:\s*["']?(.*?)["']?$/m) || text.match(/^#\s+(.*)$/m);
-          return {
-            name: name,
-            slug: slug || '',
-            title: titleMatch ? titleMatch[1] : name.replace('.md', ''),
-            text: text,
-            category: getField(text, ['category', 'tag']) || '큐레이션',
-            date: getField(text, ['date']),
-            thumb: fixImagePath(getField(text, ['thumbnail', 'image', 'cover']))
-          };
-        });
-
-
-        // 최신 글이 먼저 오도록 날짜 정렬 (날짜 없는 글은 기존 순서 유지)
-        activePosts.sort((a, b) => (new Date(b.date) || 0) - (new Date(a.date) || 0) || 0);
-
-        renderGrid();
-      } catch (err) {
-        app.innerHTML = '<div class="state-msg">글 목록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div>';
-      }
-    }
-
-    function setFilter(cat) {
-      activeFilter = cat;
-      renderGrid();
-    }
-
-    function renderGrid() {
-      const promo = document.getElementById('promo-section');
-      if (promo) promo.style.display = 'block';
-
-      const app = document.getElementById('app');
-      const cats = ['전체', ...new Set(activePosts.map(p => p.category))];
-
-      let html = '';
-      if (cats.length > 2) {
-        html += '<div class="filters">' + cats.map(c =>
-          `<button class="chip ${c === activeFilter ? 'active' : ''}" onclick="setFilter('${escapeHtml(c).replace(/'/g, "\\'")}')">${escapeHtml(c)}</button>`
-        ).join('') + '</div>';
-      } else {
-        activeFilter = '전체';
-      }
-
-      const visible = activePosts
-        .map((post, idx) => ({ post, idx }))
-        .filter(({ post }) => activeFilter === '전체' || post.category === activeFilter);
-
-      html += `<div class="post-grid ${activeFilter === '전체' && visible.length > 2 ? 'has-feature' : ''}">`;
-      visible.forEach(({ post, idx }) => {
-        const thumb = post.thumb
-          ? `<img src="${escapeHtml(post.thumb)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<span class=card-initial>${escapeHtml(post.title.charAt(0))}</span>'" />`
-          : `<span class="card-initial">${escapeHtml(post.title.charAt(0))}</span>`;
-        const href = post.slug ? `/p/${post.slug}/` : '#';
-        const click = post.slug ? '' : ` onclick="viewPost(${idx}); return false;"`;
-        html += `
-          <a class="post-card" href="${href}"${click}>
-            <div class="card-thumb">${thumb}</div>
-            <div class="card-body">
-              <span class="card-tag">${escapeHtml(post.category)}</span>
-              <h2 class="card-title">${escapeHtml(post.title)}</h2>
-              <div class="card-footer">
-                <span>${post.date ? formatDate(post.date) : '발행 완료'}</span>
-                <span class="card-more">자세히 보기</span>
-              </div>
-            </div>
-          </a>
-        `;
-      });
-      html += '</div>';
-      app.innerHTML = html;
-    }
-
-    function viewPost(idx) {
-      const promo = document.getElementById('promo-section');
-      if (promo) promo.style.display = 'none';
-
-      const app = document.getElementById('app');
-      const post = activePosts[idx];
-
-      const parts = post.text.split('---');
-      let markdownBody = parts.length >= 3 ? parts.slice(2).join('---') : post.text;
-
-      markdownBody = markdownBody.replace(/src=["']?images\//g, 'src="./images/')
-                                 .replace(/\]\(\s*images\//g, '](./images/')
-                                 .replace(/\]\(\s*\/images\//g, '](./images/');
-
-      const htmlContent = window.marked ? marked.parse(markdownBody) : markdownBody;
-
-      app.innerHTML = `
-        <button class="back-btn" onclick="renderGrid(); window.scrollTo(0, 0);">&larr; 목록으로</button>
-        <article class="detail-container">
-          <div class="detail-meta">
-            <span class="card-tag">${escapeHtml(post.category)}</span>
-            ${post.date ? `<span>${formatDate(post.date)}</span>` : ''}
-          </div>
-          <h1 class="detail-title">${escapeHtml(post.title)}</h1>
-          <div id="content-area">${htmlContent}</div>
-        </article>
-      `;
-
-      // 표가 좁은 화면에서 넘치지 않도록 감싸기
-      document.querySelectorAll('#content-area table').forEach(t => {
-        const w = document.createElement('div');
-        w.className = 'table-wrap';
-        t.parentNode.insertBefore(w, t);
-        w.appendChild(t);
-      });
-      window.scrollTo(0, 0);
-    }
-
-    function goHome() {
-      activeFilter = '전체';
-      renderGrid();
-      window.scrollTo(0, 0);
-    }
-
-    loadRealPosts();
-  </script>
-</body>
-</html>
+      <a
