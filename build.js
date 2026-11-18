@@ -138,6 +138,9 @@ for (const dir of SOURCE_DIRS) {
       // 바깥 링크에 '광고성 링크' 표시 + 새 탭 열기 (내 사이트 링크는 제외)
       html = html.replace(/<a href="(https?:\/\/[^"]*)"/g, (m, url) =>
         url.startsWith(SITE_URL) ? m : `<a href="${url}" rel="sponsored nofollow noopener" target="_blank"`);
+      // 글 끝의 '추천 제품 확인하기 / 관련 링크 확인하기' 한 줄 링크는 눈에 띄는 버튼으로 바꿈 (제휴 표시 속성은 그대로 유지)
+      html = html.replace(/<p>(<a href="[^"]*" rel="sponsored nofollow noopener" target="_blank")>(추천 제품 확인하기|관련 링크 확인하기)<\/a><\/p>/g,
+        '<p class="cta-wrap">$1 class="cta-btn">$2 &rarr;</a></p>');
     }
     const plain = decode(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
     const date = getField(text, 'date');
@@ -347,6 +350,10 @@ function postPage(p) {
   <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
   ${style}
   <style>a.back-btn { text-decoration: none; }
+  .cta-wrap { text-align: center; margin: 44px 0 !important; }
+  article .cta-btn { display: inline-block; padding: 16px 40px; background: var(--accent) !important; color: #fff !important; font-weight: 700; font-size: 1.05rem; line-height: 1.3; border-radius: 999px; text-decoration: none !important; border-bottom: 0 !important; background-image: none !important; box-shadow: 0 6px 18px rgba(0,0,0,.14); transition: transform .2s, box-shadow .2s; }
+  article .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.22); color: #fff !important; }
+  @media (prefers-color-scheme: dark) { article .cta-btn, article .cta-btn:hover { color: #0e0e0f !important; } }
   .affiliate-notice { font-size: .9rem; color: var(--ink-sub); background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); padding: 12px 16px; margin: 0 0 32px; line-height: 1.6; }${TRUST_CSS}</style>
 </head>
 <body>
