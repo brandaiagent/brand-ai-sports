@@ -1,6 +1,6 @@
 (function () {
   var sites = [
-    { n: 'Brand AI Agent', d: '쇼핑 큐레이션', u: 'https://my-page-eyb.pages.dev/' },
+    { n: 'Brand AI Agent', d: '쇼핑 큐레이션', u: 'https://brandaihub.com/' },
     { n: 'Brand AI Sports', d: '스포츠', u: 'https://brand-ai-sports.pages.dev/' },
     { n: 'Brand AI Edu', d: '교육', u: 'https://brand-ai-edu.pages.dev/' },
     { n: 'Brand AI Digital', d: '디지털', u: 'https://brand-ai-digital.pages.dev/' }
