@@ -345,6 +345,7 @@ function postPage(p) {
   ${isoMod ? `<meta property="article:modified_time" content="${esc(isoMod)}" />` : ''}
   ${img ? `<meta property="og:image" content="${esc(img)}" />` : ''}
   <meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}" />
+  <link rel="alternate" type="application/rss+xml" title="${esc(SITE_NAME)}" href="${SITE_URL}/feed.xml" />
   <meta name="color-scheme" content="light dark" />
   ${fontLinks}
   <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
@@ -402,6 +403,13 @@ for (const t of CAT_PAGES) {
 }
 
 // ---------- 메인 페이지(검색용 정보 추가) ----------
+// 홈 화면 구조화 데이터: 이 사이트가 무엇인지(WebSite) + 누가 운영하는지(Organization) + 최신 글 목록
+const homeLd = { '@context': 'https://schema.org', '@graph': [
+  { '@type': 'WebSite', '@id': SITE_URL + '/#website', url: SITE_URL + '/', name: SITE_NAME, description: SITE_DESC, inLanguage: 'ko',
+    publisher: { '@id': SITE_URL + '/#organization' } },
+  { '@type': 'Organization', '@id': SITE_URL + '/#organization', name: SITE_NAME, url: SITE_URL + '/' },
+  { '@type': 'ItemList', itemListElement: posts.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE_URL}/p/${p.slug}/`, name: p.title })) }
+] };
 const list = posts.map(p => `<li><a href="/p/${p.slug}/">${esc(p.title)}</a></li>`).join('');
 const homeHead = `  <meta name="description" content="${esc(SITE_DESC)}" />
   <link rel="canonical" href="${SITE_URL}/" />
@@ -410,6 +418,8 @@ const homeHead = `  <meta name="description" content="${esc(SITE_DESC)}" />
   <meta property="og:title" content="${SITE_NAME} - ${HOME_OG_SUFFIX}" />
   <meta property="og:description" content="${esc(SITE_DESC)}" />
   <meta property="og:url" content="${SITE_URL}/" />
+  <link rel="alternate" type="application/rss+xml" title="${esc(SITE_NAME)}" href="${SITE_URL}/feed.xml" />
+  <script type="application/ld+json">${JSON.stringify(homeLd).replace(/</g, '\\u003c')}</script>
   <style>${TRUST_CSS}</style>
 </head>`;
 let home = indexSrc.replace('</head>', homeHead);
@@ -430,6 +440,29 @@ fs.writeFileSync(path.join(OUT, 'sitemap.xml'),
 const AI_TRAINING_BOTS = ['GPTBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Google-Extended', 'Applebot-Extended', 'Bytespider', 'Meta-ExternalAgent', 'cohere-ai'];
 fs.writeFileSync(path.join(OUT, 'robots.txt'),
   `User-agent: *\nAllow: /\n\n` + AI_TRAINING_BOTS.map(b => `User-agent: ${b}\nDisallow: /\n`).join('\n') + `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+// feed.xml: 새 글을 네이버 서치어드바이저 등 검색엔진이 빨리 알아채도록 하는 RSS 피드 (최신 30개)
+const xmlEsc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+const rssDate = d => { const t = new Date(d); return isNaN(t) ? '' : t.toUTCString(); };
+const rssItems = posts.slice(0, 30).map(p => {
+  const link = `${SITE_URL}/p/${p.slug}/`, pub = rssDate(p.date);
+  return `  <item>\n    <title>${xmlEsc(p.title)}</title>\n    <link>${link}</link>\n    <guid isPermaLink="true">${link}</guid>\n` +
+    `    <description>${xmlEsc(p.desc)}</description>\n    <category>${xmlEsc(p.category)}</category>\n` +
+    (pub ? `    <pubDate>${pub}</pubDate>\n` : '') + `  </item>`;
+});
+fs.writeFileSync(path.join(OUT, 'feed.xml'),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n<channel>\n` +
+  `  <title>${xmlEsc(SITE_NAME)}</title>\n  <link>${SITE_URL}/</link>\n  <description>${xmlEsc(SITE_DESC)}</description>\n  <language>ko</language>\n` +
+  `  <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml" />\n` +
+  (posts[0] ? `  <lastBuildDate>${rssDate(posts[0].updated || posts[0].date)}</lastBuildDate>\n` : '') +
+  rssItems.join('\n') + `\n</channel>\n</rss>\n`);
+// llms.txt: ChatGPT·Perplexity 같은 AI 검색이 사이트 구성을 한눈에 파악하도록 돕는 안내 파일 (llmstxt.org 형식)
+const llmsLine = p => `- [${p.title.replace(/[\[\]]/g, '')}](${SITE_URL}/p/${p.slug}/): ${p.desc.replace(/\s+/g, ' ')}`;
+const llmsCats = [...catCount.keys()].map(c => `## ${c}\n\n` + posts.filter(p => p.category === c).map(llmsLine).join('\n'));
+fs.writeFileSync(path.join(OUT, 'llms.txt'),
+  `# ${SITE_NAME}\n\n> ${SITE_DESC}\n\n` +
+  (CONFIG.hasAffiliate ? `${AFFILIATE_NOTICE}\n\n` : '') +
+  llmsCats.join('\n\n') + '\n\n## 사이트 안내\n\n' +
+  TRUST.map(t => `- [${t.title}](${SITE_URL}/${t.slug}/)`).join('\n') + '\n');
 // posts.json: 홈 목록에 필요한 머리말(제목·날짜·카테고리·이미지)만 담습니다. (본문 제외 → 파일이 매우 작아짐)
 // 홈 화면 코드는 text 안의 머리말을 읽으므로, 같은 모양의 짧은 text 를 만들어 줍니다.
 const slimText = p => {
