@@ -11,7 +11,7 @@
     '.bx-wrap{position:relative;display:inline-block;margin:0 12px 0 0;vertical-align:middle;font:inherit}' +
     '.bx-fixed{position:fixed;top:12px;right:12px;z-index:9999;margin:0}' +
     '.bx-btn{background:none;color:inherit;font:inherit;font-size:13px;cursor:pointer;' +
-    'border:1px solid rgba(128,128,128,.4);border-radius:999px;padding:4px 12px}' +
+    'border:1px solid rgba(128,128,128,.4);border-radius:999px;padding:7px 15px;font-weight:600}' +
     '.bx-btn:hover{background:rgba(128,128,128,.12)}' +
     '.bx-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);min-width:210px;max-width:calc(100vw - 24px);' +
     'background:Canvas;color:CanvasText;border:1px solid rgba(128,128,128,.3);' +
@@ -58,6 +58,8 @@
   wrap.appendChild(menu);
 
   var admin = document.querySelector('a[href="/admin"], a[href="/admin/"]');
+  var bar = document.querySelector('.gnb-top');
   if (admin && admin.parentNode) { admin.parentNode.insertBefore(wrap, admin); }
+  else if (bar) { wrap.style.margin = '0'; bar.appendChild(wrap); }
   else { wrap.classList.add('bx-fixed'); document.body.appendChild(wrap); }
 })();

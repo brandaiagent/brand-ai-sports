@@ -365,7 +365,6 @@ function postPage(p) {
   <header class="gnb">
     <div class="gnb-top">
       <a class="logo" href="/">${SITE_NAME}</a>
-      <a class="admin-link" href="/admin" target="_blank">관리자</a>
     </div>
   </header>
   <div class="container">
@@ -470,7 +469,7 @@ fs.writeFileSync(path.join(OUT, 'llms.txt'),
 // posts.json: 홈 목록에 필요한 머리말(제목·날짜·카테고리·이미지)만 담습니다. (본문 제외 → 파일이 매우 작아짐)
 // 홈 화면 코드는 text 안의 머리말을 읽으므로, 같은 모양의 짧은 text 를 만들어 줍니다.
 const slimText = p => {
-  const keep = getFrontmatter(p.text).split('\n').filter(l => /^(date|category|tag|image|thumbnail|cover):/.test(l));
+  const keep = getFrontmatter(p.text).split('\n').filter(l => /^(date|category|tag|image|thumbnail|cover|description):/.test(l));
   return '---\ntitle: ' + String(p.title).replace(/[\r\n]+/g, ' ') + '\n' + keep.join('\n') + '\n---\n';
 };
 fs.writeFileSync(path.join(OUT, 'posts.json'), JSON.stringify(posts.map(p => ({ name: p.name, text: slimText(p), slug: p.slug }))));
