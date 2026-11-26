@@ -1,5 +1,5 @@
 {
-  "siteUrl": "https://brand-ai-sports.pages.dev",
+  "siteUrl": "https://sports.brandaihub.com",
   "name": "Brand Ai Sports",
   "description": "축구, 야구, 농구, 배구의 규칙, 전술, 팀과 선수 정보를 정리하는 스포츠 정보 블로그, Brand Ai Sports입니다.",
   "affiliateNotice": "이 글에는 제휴 링크가 포함되어 있으며, 링크를 통한 구매나 가입 등에 따라 Brand Ai Sports가 수수료를 받습니다.",
@@ -21,5 +21,8 @@
   "policyDate": "2026.11.11",
   "hasAffiliate": true,
   "analytics": "",
-  "contactEmail": "kwon0742@naver.com"
+  "contactEmail": "kwon0742@naver.com",
+  "redirectHosts": [
+    "brand-ai-sports.pages.dev"
+  ]
 }

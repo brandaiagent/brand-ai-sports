@@ -3,8 +3,8 @@ backend:
   repo: brandaiagent/brand-ai-sports
   branch: main
 
-site_url: https://brand-ai-sports.pages.dev
-display_url: https://brand-ai-sports.pages.dev
+site_url: https://sports.brandaihub.com
+display_url: https://sports.brandaihub.com
 
 media_folder: images
 public_folder: /images

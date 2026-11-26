@@ -32,8 +32,8 @@ function loadConfig() {
   return { ...DEFAULT_CONFIG, ...user };
 }
 const CONFIG = loadConfig();
-// 환경변수 SITE_URL 이 있으면 그것이 우선입니다. (끝에 / 없이)
-const SITE_URL = (process.env.SITE_URL || CONFIG.siteUrl).replace(/\/$/, '');
+// site.config.json 의 siteUrl 이 우선이고, 없을 때만 환경변수 SITE_URL 을 씁니다. (끝에 / 없이)
+const SITE_URL = (CONFIG.siteUrl || process.env.SITE_URL || '').replace(/\/$/, '');
 const SITE_NAME = CONFIG.name;
 const SITE_DESC = CONFIG.description;
 const AFFILIATE_NOTICE = CONFIG.affiliateNotice;
@@ -43,6 +43,18 @@ const HOME_OG_SUFFIX = CONFIG.homeOgTitleSuffix;
 const HERO_TITLE_HTML = CONFIG.heroTitleHtml;
 const HERO_DESC = CONFIG.heroDesc;
 const GITHUB_REPO = CONFIG.githubRepo;
+// 예전 주소(예: xxx.pages.dev)로 들어온 방문자와 검색엔진을 새 주소로 보냅니다. site.config.json 의 redirectHosts 에 적은 주소에서만 동작합니다.
+// 새 주소 자신은 절대 목록에 넣지 않습니다. (자기 자신으로 계속 이동하는 사고 방지)
+// 구글 애드센스: site.config.json 의 adsenseClient(ca-pub-...)가 있을 때만 모든 글·안내 페이지 head 에 넣고 ads.txt 를 만든다 (홈은 index.html 에 이미 있음)
+const ADSENSE_CLIENT = String(CONFIG.adsenseClient || '').trim();
+const ADSENSE_HEAD = /^ca-pub-\d+$/.test(ADSENSE_CLIENT)
+  ? `<meta name="google-adsense-account" content="${ADSENSE_CLIENT}">\n  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>`
+  : '';
+const SITE_HOST = SITE_URL.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+const REDIRECT_HOSTS = (CONFIG.redirectHosts || []).map(h => String(h).toLowerCase()).filter(h => h && h !== SITE_HOST);
+const REDIRECT_JS = REDIRECT_HOSTS.length
+  ? `<script>if(${JSON.stringify(REDIRECT_HOSTS)}.indexOf(location.hostname)>-1)location.replace(${JSON.stringify(SITE_URL)}+location.pathname+location.search+location.hash)</script>`
+  : '';
 const OUT = 'dist';
 const SOURCE_DIRS = ['.', 'posts'];
 const SKIP = new Set(['dist', 'node_modules', 'posts', 'build.js', 'package.json', 'package-lock.json', 'vercel.json', 'site.config.json']);
@@ -267,6 +279,8 @@ function trustPage(t) {
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  ${REDIRECT_JS}
+  ${ADSENSE_HEAD}
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${esc(t.title)} | ${SITE_NAME}</title>
   <meta name="description" content="${esc(t.desc)}" />
@@ -335,6 +349,8 @@ function postPage(p) {
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  ${REDIRECT_JS}
+  ${ADSENSE_HEAD}
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${esc(p.title)} | ${SITE_NAME}</title>
   <meta name="description" content="${esc(p.desc)}" />
@@ -414,7 +430,9 @@ const homeLd = { '@context': 'https://schema.org', '@graph': [
   { '@type': 'ItemList', itemListElement: posts.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE_URL}/p/${p.slug}/`, name: p.title })) }
 ] };
 const list = posts.map(p => `<li><a href="/p/${p.slug}/">${esc(p.title)}</a></li>`).join('');
-const homeHead = `  <meta name="description" content="${esc(SITE_DESC)}" />
+const homeHead = `  ${REDIRECT_JS}
+  ${ADSENSE_HEAD ? `<meta name="google-adsense-account" content="${ADSENSE_CLIENT}">` : ''}
+  <meta name="description" content="${esc(SITE_DESC)}" />
   <link rel="canonical" href="${SITE_URL}/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="${SITE_NAME}" />
@@ -432,6 +450,7 @@ home = home.replace('</footer>', '</footer>\n  ' + trustNav());
 fs.writeFileSync(path.join(OUT, 'index.html'), home);
 
 // ---------- sitemap / robots / posts.json ----------
+if (ADSENSE_HEAD) fs.writeFileSync(path.join(OUT, 'ads.txt'), `google.com, ${ADSENSE_CLIENT.replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n`);
 const urls = [`<url><loc>${SITE_URL}/</loc></url>`].concat(posts.map(p => {
   let last = '';
   try { last = `<lastmod>${new Date(p.updated || p.date).toISOString().slice(0, 10)}</lastmod>`; } catch (e) {}
