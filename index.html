@@ -313,7 +313,7 @@
                                  .replace(/\]\(\s*images\//g, '](./images/')
                                  .replace(/\]\(\s*\/images\//g, '](./images/');
 
-      const htmlContent = window.marked ? marked.parse(markdownBody) : markdownBody;
+      const htmlContent = window.marked ? marked.parse(markdownBody.replace(/([0-9A-Za-z가-힣%℃㎡.,)])~(?=[0-9A-Za-z가-힣(])/g, '$1\\~')) : markdownBody;
 
       app.innerHTML = `
         <button class="back-btn" onclick="renderGrid(); window.scrollTo(0, 0);">&larr; 목록으로</button>
