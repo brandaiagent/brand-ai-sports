@@ -118,7 +118,7 @@ const posts = [];
 for (const dir of SOURCE_DIRS) {
   if (!fs.existsSync(dir)) continue;
   for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith('.md') || name === 'README.md') continue;
+    if (!name.endsWith('.md') || name === 'README.md' || name.startsWith('.')) continue; // 점(.)으로 시작하는 파일은 작업용 메모라 글로 올리지 않음
     const file = path.join(dir, name);
     if (!fs.statSync(file).isFile()) continue;
     const text = fs.readFileSync(file, 'utf8');
