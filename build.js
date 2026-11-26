@@ -130,7 +130,9 @@ for (const dir of SOURCE_DIRS) {
       .replace(/src=(["'])\.?\/?images\//g, 'src=$1/images/')
       .replace(/\]\(\s*\.?\/?images\//g, '](/images/')
       // "182~606"처럼 범위를 뜻하는 물결표가 취소선으로 바뀌지 않게 막음 (~~두 개~~는 그대로 취소선)
-      .replace(/([0-9A-Za-z가-힣%℃㎡.,)])~(?=[0-9A-Za-z가-힣(])/g, '$1\\~');
+      .replace(/([0-9A-Za-z가-힣%℃㎡.,)])~(?=[0-9A-Za-z가-힣(])/g, '$1\\~')
+      // "**12월 11일(금)**에"처럼 괄호 뒤에 바로 한글이 붙으면 굵은 글씨가 안 먹어서 별표가 보이므로 직접 <strong>으로 바꿈
+      .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
     let imgN = 0; // 첫 이미지는 즉시 로드(LCP), 나머지는 지연 로드
     let html = marked.parse(fixed)
       .replace(/<table>/g, '<div class="table-wrap"><table>')
