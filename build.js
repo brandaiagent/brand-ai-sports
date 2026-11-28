@@ -57,6 +57,7 @@ const REDIRECT_JS = REDIRECT_HOSTS.length
   : '';
 const OUT = 'dist';
 const SOURCE_DIRS = ['.', 'posts'];
+const DEFAULT_OG = `${SITE_URL}/images/og-cover-v1.jpg`; // 대표 이미지가 없는 페이지의 공유 미리보기
 const SKIP = new Set(['dist', 'node_modules', 'posts', 'build.js', 'package.json', 'package-lock.json', 'vercel.json', 'site.config.json', 'functions']);
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -291,6 +292,8 @@ function trustPage(t) {
   <meta property="og:description" content="${esc(t.desc)}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:locale" content="ko_KR" />
+  <meta property="og:image" content="${DEFAULT_OG}" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="color-scheme" content="light dark" />
   ${fontLinks}
   ${style}
@@ -363,8 +366,8 @@ function postPage(p) {
   <meta property="og:locale" content="ko_KR" />
   ${iso ? `<meta property="article:published_time" content="${esc(iso)}" />` : ''}
   ${isoMod ? `<meta property="article:modified_time" content="${esc(isoMod)}" />` : ''}
-  ${img ? `<meta property="og:image" content="${esc(img)}" />` : ''}
-  <meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}" />
+  <meta property="og:image" content="${esc(img || DEFAULT_OG)}" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="${esc(SITE_NAME)}" href="${SITE_URL}/feed.xml" />
   <meta name="color-scheme" content="light dark" />
   ${fontLinks}
