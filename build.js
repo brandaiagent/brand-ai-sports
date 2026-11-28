@@ -57,7 +57,7 @@ const REDIRECT_JS = REDIRECT_HOSTS.length
   : '';
 const OUT = 'dist';
 const SOURCE_DIRS = ['.', 'posts'];
-const SKIP = new Set(['dist', 'node_modules', 'posts', 'build.js', 'package.json', 'package-lock.json', 'vercel.json', 'site.config.json']);
+const SKIP = new Set(['dist', 'node_modules', 'posts', 'build.js', 'package.json', 'package-lock.json', 'vercel.json', 'site.config.json', 'functions']);
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const decode = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
